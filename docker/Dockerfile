@@ -1,30 +1,14 @@
-FROM eclipse-temurin:17 as builder
-WORKDIR application
-ARG ARTIFACT_NAME
-COPY ${ARTIFACT_NAME}.jar application.jar
-RUN java -Djarmode=layertools -jar application.jar extract
-
-# Download dockerize and cache that layer
+FROM openjdk:11-jre
+VOLUME /tmp
 ARG DOCKERIZE_VERSION
-RUN wget -O dockerize.tar.gz https://github.com/jwilder/dockerize/releases/download/${DOCKERIZE_VERSION}/dockerize-alpine-linux-amd64-${DOCKERIZE_VERSION}.tar.gz
-RUN tar xzf dockerize.tar.gz
-RUN chmod +x dockerize
-
-
-FROM eclipse-temurin:17
-
-WORKDIR application
-
-# Dockerize
-COPY --from=builder application/dockerize ./
-
+ARG ARTIFACT_NAME
 ARG EXPOSED_PORT
-EXPOSE ${EXPOSED_PORT}
-
 ENV SPRING_PROFILES_ACTIVE docker
 
-COPY --from=builder application/dependencies/ ./
-COPY --from=builder application/spring-boot-loader/ ./
-COPY --from=builder application/snapshot-dependencies/ ./
-COPY --from=builder application/application/ ./
-ENTRYPOINT ["java", "org.springframework.boot.loader.JarLauncher"]
+ADD https://github.com/jwilder/dockerize/releases/download/${DOCKERIZE_VERSION}/dockerize-alpine-linux-amd64-${DOCKERIZE_VERSION}.tar.gz dockerize.tar.gz
+RUN tar xzf dockerize.tar.gz
+RUN chmod +x dockerize
+ADD ${ARTIFACT_NAME}.jar /app.jar
+RUN touch /app.jar
+EXPOSE ${EXPOSED_PORT}
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom","-jar","/app.jar"]
